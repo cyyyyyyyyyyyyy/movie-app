@@ -10,13 +10,23 @@ namespace MoviesApp
     {
         static void Main()
         {
-            //Stopwatch sw = new Stopwatch();
-            //sw.Start();
+            MainLoop();            
+        }
 
+        static void MainLoop()
+        {
             MovieParser.Parse();
+            do
+            {
+                Console.WriteLine("Reinit db? (y/n/exit)");
+                string? command = Console.ReadLine();
 
-            //sw.Stop();
-            //Console.WriteLine($"Time elapsed: {sw.Elapsed}");
+                if (command == "y") { DbInit.Init(); break; }                    
+                if (command == "n") { break; }
+                if (command == "exit") { Environment.Exit(0); }                
+                
+                Console.WriteLine("Invalid command\n");
+            } while (true);
         }
     }
 }

@@ -1,37 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace MoviesApp
+﻿namespace MoviesApp
 {
     public class Movie
     {
-        public string id { get; set; }
-        public string name { get; set; }
-        public List<string> actors { get; set; }
-        public string director { get; set; }
-        public List<string> tags { get; set; }
+        public string movieId { get; set; }
+        //public string mainTitle { get; set; }
+        public List<Title> titles { get; set; }
+        public List<Movie> top10 { get; set; }
+        //public List<Person> persons { get; set; }
+        //public Director director { get; set; }
+        public List<Category> categories { get; set; }
+        public List<Tag> tags { get; set; }
         public double rating { get; set; }
-        public Movie(string id, string name, List<string> actors, string director, List<string> tags, double rating)
+        public Movie()
         {
-            this.id = id;
-            this.name = name;
-            this.actors = actors;
-            this.director = director;
-            this.tags = tags;
-            this.rating = rating;
+            movieId = ""; /*mainTitle = ""*/; titles = new(); /*persons = new();*/ top10 = new();
+            /*director = new()*/ categories = new(); tags = new(); rating = 0.0;
         }
+    }
 
-        public Movie() 
-        {
-            id = "";
-            name = "";
-            actors = new List<string>();
-            director = "";
-            tags = new List<string>();
-            rating = 0.0;
-        }
+    public class Title
+    {
+        public int titleId { get; set; }
+        public string title { get; set; }
+        public Movie movie { get; set; }
+        public Title() { titleId = 0; title = ""; movie = new Movie(); }
     }
 }
