@@ -15,13 +15,14 @@ namespace MoviesApp
 
         static void MainLoop()
         {
-            MovieParser.Parse();
+            var parser = new MovieParser();
+            parser.Parse();
             do
             {
                 Console.WriteLine("Reinit db? (y/n/exit)");
                 string? command = Console.ReadLine();
 
-                if (command == "y") { DbInit.Init(); break; }                    
+                if (command == "y") { DbInit.Init(parser); break; }                    
                 if (command == "n") { break; }
                 if (command == "exit") { Environment.Exit(0); }                
                 
