@@ -13,36 +13,11 @@ namespace MoviesApp
 {
     public static class DbInit
     {
-        public class AppContext: DbContext
-        {
-            public DbSet<Movie> Movies => Set<Movie>();
-            public DbSet<Person> Persons => Set<Person>();
-            public DbSet<Tag> Tags => Set<Tag>();
-            public DbSet<Category> Categories => Set<Category>();
-            public DbSet<Title> Titles => Set<Title>();
-
-            protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            {
-                optionsBuilder.UseNpgsql(
-                "Host=localhost;" +
-                "Port=5432;" +
-                "Database=myFilmDb;" +
-                "Username=postgres;" +
-                "Password=12345");
-            }
-            
-            protected override void OnModelCreating(ModelBuilder modelBuilder) 
-            {
-                modelBuilder.Entity<Movie>()
-                .HasMany(m => m.top10)
-                .WithMany();
-            }
-        }
         public static void Init(MovieParser movparser)
         {
             using (var context = new AppContext())
             {
-                context.Database.EnsureDeleted();
+                //context.Database.EnsureDeleted();
                 context.Database.EnsureCreated();
             }
 
@@ -53,12 +28,17 @@ namespace MoviesApp
                 Database = "myFilmDb",
                 Username = "postgres",
                 Password = "12345",
-                IncludeErrorDetail = true
+                IncludeErrorDetail = true,
+                Pooling = false,
+                Timeout = 300,
+                CommandTimeout = 300
             };
             NpgsqlConnection connection = new NpgsqlConnection(connectionString.ConnectionString);
 
-            int _cid = 1;
             connection.Open();
+
+            int _cid = 1;
+            int _tid = 1;
             using (var writer = connection.BeginBinaryImport("COPY \"Movies\" FROM STDIN (FORMAT BINARY)"))
             {
                 foreach (Movie mov in movparser._movieIdMovie.Values) 
@@ -77,7 +57,6 @@ namespace MoviesApp
                     writer.StartRow();
                     writer.Write(pers.personId, NpgsqlDbType.Varchar);
                     writer.Write(pers.name, NpgsqlDbType.Text);
-                    //writer.Write(pers.TypeToString(), NpgsqlDbType.Text);
                 }
                 writer.Complete();
             }
@@ -99,10 +78,13 @@ namespace MoviesApp
                 {
                     foreach (Title title in mov.titles)
                     {
+                        title.titleId = _tid;
                         writer.StartRow();
                         writer.Write(title.titleId, NpgsqlDbType.Integer);
                         writer.Write(title.title, NpgsqlDbType.Text);
                         writer.Write(mov.imdbId, NpgsqlDbType.Varchar);
+
+                        _tid++;
                     }
                 }
                 writer.Complete();
@@ -143,7 +125,7 @@ namespace MoviesApp
                 }
                 writer.Complete();
             }
-
+            
             using (var writer = connection.BeginBinaryImport("COPY \"MovieMovie\" FROM STDIN (FORMAT BINARY)"))
             {
                 foreach (Movie mov in movparser._movieIdMovie.Values)

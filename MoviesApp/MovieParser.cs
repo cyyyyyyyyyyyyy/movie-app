@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿#define PARALLEL_PARSE
+
+using System.Globalization;
 using System.Diagnostics;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
@@ -14,8 +16,8 @@ namespace MoviesApp
 
         private Dictionary<string, List<string>> _actorNamesMovieList =
             new(); // actorName, movieList
-
         private Dictionary<int, string> _tagCodesNames = new();
+
         private Dictionary<string, double> _moviesIdsRating = new();
         private Dictionary<string, int> _moviesImdbIdsLensIds = new();
         private Dictionary<int, string> _moviesLensIdsImdbIds = new();
@@ -27,11 +29,10 @@ namespace MoviesApp
         ConcurrentDictionary<string, Person> _persons = new(); // name, List Movie
         ConcurrentDictionary<string, Tag> _tags = new(); // name, List Movie
 
-        private string _currReleaseInfoPath = "alpha2.txt";
-
+        //private string _currReleaseInfoPath = "alpha2.txt";
         //static private string _performanceInfoPath = "C:\\github\\movie-app\\MoviesApp\\performanceInfo\\";
-        static private string standartroot = "C:\\github\\movie-app\\MoviesApp\\ml-latest\\";
-        //private static string standartroot = "C:\\Users\\s-khechnev\\Desktop\\ml-latest\\";
+
+        private static string standartroot = "C:\\github\\movie-app\\MoviesApp\\ml-latest\\";
         private string _movieCodesDir = standartroot + "MovieCodes_IMDB.tsv";
         private string _actorsCodesDir = standartroot + "ActorsDirectorsNames_IMDB.txt";
         private string _actorsAndMoviesCodesDir = standartroot + "ActorsDirectorsCodes_IMDB.tsv";
@@ -42,16 +43,16 @@ namespace MoviesApp
         private string _tagScoresDir = standartroot + "TagScores_MovieLens.csv";
 
         public Dictionary<string, Movie> _movieIdMovie = new();
-        private ConcurrentDictionary<string, Person> _personIdPerson = new();
-        private ConcurrentDictionary<int, Tag> _tagIdTag = new();
-        private ConcurrentDictionary<int, string> _lensImdb = new();
+        private Dictionary<string, Person> _personIdPerson = new();
+        private Dictionary<int, Tag> _tagIdTag = new();
+        private Dictionary<int, string> _lensImdb = new();
         //private int _movieId = 1;
-        private int _titleId = 1;
+        //private int _titleId = 1;
         //private int _personId = 1;
-        private int _categoryId = 1;
+        //private int _categoryId = 1;
 
-        public Dictionary<Person, List<Movie>> _personMovies = new();
-        public Dictionary<Tag, List<Movie>> _tagMovies = new();
+        public ConcurrentDictionary<Person, List<Movie>> _personMovies = new();
+        public ConcurrentDictionary<Tag, List<Movie>> _tagMovies = new();
 
         delegate void parser();
 
@@ -71,6 +72,8 @@ namespace MoviesApp
             Task.WaitAll(new Task[] { t2, t4, t6, t7 });
             var t8 = Task.Factory.StartNew(() => ComposeDictionaries());
             t8.Wait();
+            var t9 = Task.Factory.StartNew(() => ComposeTop10());
+            t9.Wait();
 #else
 
             var parsers = new Dictionary<parser, string>
@@ -84,7 +87,7 @@ namespace MoviesApp
                 [ParseTagScores] = "ParseTagScores",
                 [ParseActorsAndMoviesCodes] = "ParseActorsAndMoviesCodes",
                 [ComposeDictionaries] = "Compose Dictionaries",
-                //[ComposeTop10] = "ComposeTop10"
+                [ComposeTop10] = "ComposeTop10"
 
                 //[ComposeDictionaries] = "Compose Dictionaries"
             };
@@ -117,14 +120,13 @@ namespace MoviesApp
             Stopwatch parserSw = new Stopwatch();
             parserSw.Start();
 
-            string? line = "";
-            //Parallel.ForEach(File.ReadLines(_movieCodesDir), line =>
-            using (StreamReader reader = File.OpenText(_movieCodesDir))
+            //using (StreamReader reader = File.OpenText(_movieCodesDir))
+            Parallel.ForEach(File.ReadLines(_movieCodesDir), line =>            
             {
-                reader.ReadLine();
-                line = reader.ReadLine();
+                //reader.ReadLine();
+                //line = reader.ReadLine();
 
-                while (line != null)
+                //while (line != null)
                 {
                     /*
                     string[] lineData = line.Split("\t");
@@ -137,8 +139,6 @@ namespace MoviesApp
                     var span = line.AsSpan();
                     int index = span.IndexOf("\t");
                     string code = span.Slice(0, index).ToString();
-                    string code1 = span.Slice(2, index - 2).ToString();
-                    int titleCode = int.Parse(code1) * 10;
 
                     span = span.Slice(index + 1);
                     index = span.IndexOf("\t");
@@ -160,41 +160,27 @@ namespace MoviesApp
 
                     if (crit)
                     {
-                        /*_moviesIdsNames.TryAdd(code, name);
-                        if (!_moviesIdsTitles.TryAdd(code,
-                            new List<Title>
-                            {
-                                new Title
-                                {
-                                    title = name,
-                                    titleId = titleCode
-                                } 
-                            }
-                            ))
-                        {
-                            _moviesIdsTitles[code].Add(new Title { title = name, titleId = titleCode + 1 });
-                        }*/
                         if (!_movieIdMovie.ContainsKey(code))
                         {
                             var movie = new Movie();
                             movie.imdbId = code;
                             //movie.MovieId = _movieId;
                             //_movieId++;
-
-                            _movieIdMovie.Add(code, movie);
+                            lock (_movieIdMovie)
+                                _movieIdMovie.TryAdd(code, movie);
                         }
 
                         var currMovie = _movieIdMovie[code];
 
-                        var title = new Title() { titleId = _titleId, title = name, movie = currMovie };
-                        _titleId++;
-
-                        currMovie.titles.Add(title);
+                        var title = new Title() { /*titleId = _titleId,*/ title = name, movie = currMovie };
+                        //_titleId++;
+                        lock (currMovie.titles)
+                            currMovie.titles.Add(title);
                     }
 
-                    line = reader.ReadLine();
+                    //line = reader.ReadLine();
                 }
-            }
+            });
 
             parserSw.Stop();
             Console.WriteLine("ParseMovieCodes: " + parserSw.Elapsed);
@@ -220,7 +206,8 @@ namespace MoviesApp
 
                 string name = span.Slice(0, span.IndexOf("\t")).ToString();
 
-                _personIdPerson.TryAdd(persId, new Person() { /*Id = _personId,*/ personId = persId, name = name });
+                lock (_personIdPerson)
+                    _personIdPerson.TryAdd(persId, new Person() { /*Id = _personId,*/ personId = persId, name = name });
             });
 
             parserSw.Stop();
@@ -251,7 +238,7 @@ namespace MoviesApp
 
                     string tagName = span.ToString();
 
-                    lock (_tagCodesNames)
+                    lock (_tagIdTag)
                     {
                         //_tagCodesNames.TryAdd(intTagId, tagName);
                         _tagIdTag.TryAdd(intTagId, new Tag() { name = tagName, tagId = intTagId });
@@ -311,7 +298,7 @@ namespace MoviesApp
 
                     //_categoryId++;
 
-                    lock (currMovie)
+                    lock (currMovie.categories)
                     {
                         currMovie.categories.Add(category);
                     }
@@ -434,7 +421,8 @@ namespace MoviesApp
                             _moviesImdbIdsLensIds.TryAdd(imdbId, intMovLensId);
                         }
                     }*/
-                    _lensImdb.TryAdd(intMovLensId, imdbId);
+                    lock (_lensImdb)
+                        _lensImdb.TryAdd(intMovLensId, imdbId);
                 }
                 catch (FormatException)
                 {
@@ -491,7 +479,7 @@ namespace MoviesApp
                     if (_movieIdMovie.ContainsKey(movId))
                     {
                         var currMovie = _movieIdMovie[movId];
-                        lock (_tagCodesNames)
+                        lock (currMovie.tags)
                         {
                             currMovie.tags.Add(_tagIdTag[intTagId]);
                         }
@@ -508,17 +496,19 @@ namespace MoviesApp
             Stopwatch parserSw = new Stopwatch();
             parserSw.Start();
 
-            foreach (var movie in _movieIdMovie.Values)
+            Parallel.ForEach(_movieIdMovie.Values, movie =>
             {
                 foreach (var person in movie.categories.Select(item => item.person))
                 {
                     if (_personMovies.ContainsKey(person))
                     {
-                        _personMovies[person].Add(movie);
+                        lock (_personMovies[person])
+                            _personMovies[person].Add(movie);
                     }
                     else
                     {
-                        _personMovies.Add(person, new List<Movie>() { movie });
+                        //lock (_personMovies)
+                        _personMovies.TryAdd(person, new List<Movie>() { movie });
                     }
                 }
 
@@ -526,27 +516,28 @@ namespace MoviesApp
                 {
                     if (_tagMovies.ContainsKey(tag))
                     {
-                        _tagMovies[tag].Add(movie);
+                        lock (_tagMovies[tag])
+                            _tagMovies[tag].Add(movie);
                     }
                     else
                     {
-                        _tagMovies.Add(tag, new List<Movie>() { movie });
+                        //lock (_tagMovies)
+                        _tagMovies.TryAdd(tag, new List<Movie>() { movie });
                     }
                 }
-            }
+            });
+            //foreach (var movie in _movieIdMovie.Values)
+            //{
+            //}
 
             parserSw.Stop();
             Console.WriteLine("ComposeDictionaries: " + parserSw.Elapsed);
         }
-
-        [SuppressMessage("ReSharper.DPA", "DPA0000: DPA issues")]
         private void ComposeTop10()
         {
             int count = 0;
             Parallel.ForEach(_movieIdMovie.Values, movie =>
-            {
-                //Dictionary<double, HashSet<Movie>> estimatedMovies = new();
-
+            {                
                 HashSet<Movie> addedMovies = new();
 
                 if (movie.categories.Count != 0)
@@ -560,7 +551,7 @@ namespace MoviesApp
                             if (addedMovies.Contains(mov) || mov.imdbId == movie.imdbId)
                                 continue;
 
-                            var estimation = movie.GetEstimation(mov);
+                            var estimation = movie.Estimate(mov);
 
                             mov.temp = estimation;
 
@@ -580,7 +571,7 @@ namespace MoviesApp
                             if (addedMovies.Contains(mov) || mov.imdbId == movie.imdbId)
                                 continue;
 
-                            var estimation = movie.GetEstimation(mov);
+                            var estimation = movie.Estimate(mov);
 
                             mov.temp = estimation;
 
@@ -596,7 +587,8 @@ namespace MoviesApp
 
                 foreach (var item in addedMovies.OrderByDescending(item => item.temp))
                 {
-                    movie.top10.Add(item);
+                    lock (movie.top10)
+                        movie.top10.Add(item);
                     k++;
                     if (k == 10)
                         break;

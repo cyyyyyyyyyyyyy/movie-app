@@ -11,27 +11,22 @@ namespace MoviesApp
 {
     public class Person
     {
-        [Key] 
         //public int Id { get; set; }
+        [Key]
         public string personId { get; set; }
-
         public string name { get; set; }
-
-        //public List<Movie> movies { get; set; }
         //public List<Category> categories { get; set; }
-
         public Person()
         {
             name = "";
-            personId = ""; /*movies = new();*/
-            //categories = new();
+            personId = "";
         }
 
         public override bool Equals(object? obj)
         {
             if (obj is Person)
             {
-                return name == (obj as Person).name;
+                return personId == (obj as Person).personId;
             }
             else
             {
@@ -41,19 +36,7 @@ namespace MoviesApp
 
         public override int GetHashCode()
         {
-            return name.GetHashCode();
+            return personId.GetHashCode();
         }
-
-        //public virtual string TypeToString() { return "Person"; }
     }
-    /*public class Actor : Person
-    {
-        public Actor() : base() { }
-        public override string TypeToString() { return "Actor"; }
-    }
-    public class Director : Person
-    {
-        public Director() : base() { }
-        public override string TypeToString() { return "Director"; }
-    }*/
 }
